@@ -1,0 +1,4 @@
+-   Aggiungere dei limiti max e min sulla posizione del carrello,
+    quando useremo l'algoritmo di RL, l'episodio termina sia quando
+    l'errore sull'angolo supera una certa soglia, sia quando il carrello
+    esce da una zona delimitata.
