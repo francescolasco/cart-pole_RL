@@ -26,7 +26,7 @@ ui = 0;
 
 % tempi
 Ts = 0.001;         % campionamento    
-Tfinal = 2;         % tempo missione
+Tfinal = 10;         % tempo missione
 
 
 ref = [0; 0; pi; 0];    % riferimento 
