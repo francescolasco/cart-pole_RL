@@ -1,10 +1,53 @@
-function dx = dinamica(x,m,M,L,g,d,u)
+function [sp, r, isTerminal] = dinamica(s, s0, m, M, L, g, d, a, Ts, X, V, THETA, OMEGA)
 
-Sx = sin(x(3));
-Cx = cos(x(3));
-D = m*L*L*(M+m*(1-Cx^2));
+% transform action in acceleration
+switch a
+    case 1
+        u = 100;
+    case 2
+        u = -100;
+end
 
-dx(1,1) = x(2); % posizione                   
-dx(2,1) = (1/D)*(-m^2*L^2*g*Cx*Sx + m*L^2*(m*L*x(4)^2*Sx - d*x(2))) + m*L*L*(1/D)*u; % velocità
-dx(3,1) = x(4); % angolo 
-dx(4,1) = (1/D)*((m+M)*m*g*L*Sx - m*L*Cx*(m*L*x(4)^2*Sx - d*x(2))) - m*L*Cx*(1/D)*u; % velocità angolare
+mmodel = @(t,x,u) model(s,m,M,L,g,d,u); 
+[~, x] = ode45(@(t, x) mmodel(t, s, u), [0,Ts], s);
+sp = x(end,:);
+
+% % we should integrate continuous-time dynamics
+% Ts = 1; % sampling time
+% % integrate differential equations
+% odefun = @(t,s) [s(2); 0.001*a - 0.0025*cos(3*x(1))];
+% [t, st] = ode45(odefun, [0, Ts], s);
+% % get next states as the last one
+% sp = st(end,:)';
+
+% to simplify, we use the forward Euler discretization
+% xp = x + v;
+% vp = v + 0.001*acc - 0.0025*cos(3*x);
+%xp = x + tt*v;
+%vp = v + tt*acc;  
+
+% saturate the next state
+% sp(1) = max(min(sp(1), X(2)),X(1));
+% sp(2) = max(min(sp(2), V(2)),V(1));
+% sp(3) = max(min(sp(3), THETA(2)),THETA(1));
+% sp(4) = max(min(sp(4), OMEGA(2)),OMEGA(1));
+
+% Se raggiungo un limite in uno dei 4 stati, ricomincio da capo
+if sp(1) < X(1) || sp(1) > X(2) || sp(2) < V(1) || sp(2) > V(2) || sp(3) < THETA(1) || sp(3) > THETA(2) || sp(4) < OMEGA(1) || sp(4) > OMEGA(2)
+    sp = s0;
+end
+
+% % implement the impact dynamics
+% if xp == X(1) && vp < 0
+%     vp = 0;
+% end
+
+% define reward
+r = -1;
+
+% define isTerminal
+if (sp(1)^2 + sp(2)^2 + (sp(3)-pi/2)^2 + sp(4)^2) <= 0.01
+    isTerminal = 1;
+else
+    isTerminal = 0;
+end
