@@ -3,9 +3,9 @@ function [sp, r, isTerminal] = dinamica(s, s0, m, M, L, g, d, a, Ts, X, V, THETA
 % transform action in acceleration
 switch a
     case 1
-        u = 100;
+        u = 200;
     case 2
-        u = -100;
+        u = -200;
 end
 
 mmodel = @(t,x,u) model(s,m,M,L,g,d,u); 
@@ -32,8 +32,10 @@ sp = x(end,:);
 % sp(3) = max(min(sp(3), THETA(2)),THETA(1));
 % sp(4) = max(min(sp(4), OMEGA(2)),OMEGA(1));
 
-% Se raggiungo un limite in uno dei 4 stati, ricomincio da capo
+% Se raggiungo un limite solo su posizione, velocità o velocità angolare ricomincio da capo
 if sp(1) < X(1) || sp(1) > X(2) || sp(2) < V(1) || sp(2) > V(2) || sp(3) < THETA(1) || sp(3) > THETA(2) || sp(4) < OMEGA(1) || sp(4) > OMEGA(2)
+% if sp(1) < X(1) || sp(1) > X(2) || sp(2) < V(1) || sp(2) > V(2) || sp(4) < OMEGA(1) || sp(4) > OMEGA(2)
+%if sp(1) < X(1) || sp(1) > X(2)
     sp = s0;
 end
 
@@ -46,7 +48,9 @@ end
 r = -1;
 
 % define isTerminal
-if (sp(1)^2 + sp(2)^2 + (sp(3)-pi/2)^2 + sp(4)^2) <= 0.01
+% NON MI INTERESSA SE IL CARRELLO NON è CENTRATO IN 0
+% LA CONDIZIONE DI EQUILIBRIO è SULLA VELOCITà, SU THETA E SU OMEGA
+if ((sp(3)-pi)^2 + sp(4)^2) <= 0.01
     isTerminal = 1;
 else
     isTerminal = 0;

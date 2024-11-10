@@ -7,29 +7,29 @@ A = 2;
 % number of episodes
 numEpisodes = 10000;
 % exploration parameter
-epsilon = 0.3;
+epsilon = 1;
 % foresight parameter
 gamma = 1;
 % update parameter
 alpha = 1e-2;
 
-% parametri del sistema dinamico
-mm = 1;
-MM = 5;
+% parametri del sistema
+mm = 0.5;
+MM = 2.5;
 L = 2;
-g = -10;
+g = -9.81;
 dd = 1;
 
-Ts = 0.001;
+Ts = 0.005;
 
 % size of the state space
-X = [-1 1];
-V = [-2 2];
-THETA = [pi/2 - 0.2 pi/2 + 0.2];
-OMEGA = [-1.5 1.5];
+X = [-5 5];
+V = [-20 20];
+THETA = [pi - pi/4 pi + pi/4];
+OMEGA = [-20 20];
 
 % parameters
-M = 15; % number of cells per grid
+M = 10; % number of cells per grid
 N = 10; % number of grids
 
 % dimension of the weight vector
@@ -46,7 +46,7 @@ w = randn(d,A);
 % total return
 G = zeros(numEpisodes,1);
 
-s0 = [0; 0; pi/2 + 0.1; 0];
+s0 = [0; 0; pi - pi/8; 0];
 
 for e = 1:numEpisodes
     % initialize the episode 
@@ -75,12 +75,14 @@ for e = 1:numEpisodes
     while ~isTerminal
         % stampo lo stato
         % if mod(k,1000) == 0
-        %     disp(s);
+        
         % end
         % k = k + 1;
 
         % take action a and observe sp and r
         [sp, r, isTerminal] = dinamica(s, s0, mm, MM, L, g, dd, a, Ts, X, V, THETA, OMEGA);
+        drawpend(sp,mm,MM,L);
+        disp(sp);
 
         % update total return
         G(e) = G(e) + r;
@@ -112,15 +114,14 @@ for e = 1:numEpisodes
             Fac = Facp;
         end
     end
-
-    % if mod(e,100) == 0
-    %     epsilon = epsilon*0.995;
-    %     disp(epsilon);
-    % end
+    
+    epsilon = epsilon * 0.5;
 end
 
 %% plot
-s = [0; 0; pi/2 + 0.05; 0];
+load("w.mat");
+
+s0 = [0; 0; pi + pi/8; 0];
 
 historyX = [s(1)];
 historyV = [s(2)];
@@ -138,10 +139,12 @@ a = find(Q == max(Q), 1, 'first'); % take greedy action wrt Q
 % at the beginning is not terminal
 isTerminal = false;
 
+s = s0;
+
 while ~isTerminal
     % take action a and observe sp and r
-    
-    [sp, r, isTerminal] = dinamica(s, mm, MM, L, g, dd, a, Ts, X, V, THETA, OMEGA);
+    [sp, r, isTerminal] = dinamica(s, s0, mm, MM, L, g, dd, a, Ts, X, V, THETA, OMEGA);
+    drawpend(sp,mm,MM,L);
 
     historyX = [historyX, sp(1)];
     historyV = [historyV, sp(2)];
@@ -159,12 +162,8 @@ while ~isTerminal
         Facp = get_features(sp, cellX, cellV, cellTHETA, cellOMEGA, M, N);
         % compute next q function
         Qp = sum(w(Facp,:));
-        % take epsilon greedy action
-        if rand < epsilon
-            ap = randi(A); % take random action
-        else
-            ap = find(Qp == max(Qp), 1, 'first'); % take greedy action 
-        end
+        % take greedy action
+        ap = find(Qp == max(Qp), 1, 'first');
         % compute temporal difference error
         delta = r + gamma*Qp(ap) - sum(w(Fac,a));
     end
