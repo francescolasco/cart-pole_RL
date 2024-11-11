@@ -18,7 +18,7 @@ mm = 0.5;
 MM = 2.5;
 L = 2;
 g = -9.81;
-dd = 1;
+dd = 0.3;
 
 Ts = 0.005;
 
@@ -81,8 +81,8 @@ for e = 1:numEpisodes
 
         % take action a and observe sp and r
         [sp, r, isTerminal] = dinamica(s, s0, mm, MM, L, g, dd, a, Ts, X, V, THETA, OMEGA);
-        drawpend(sp,mm,MM,L);
-        disp(sp);
+        % drawpend(sp,mm,MM,L);
+        % disp(sp);
 
         % update total return
         G(e) = G(e) + r;
@@ -119,7 +119,7 @@ for e = 1:numEpisodes
 end
 
 %% plot
-load("w.mat");
+%load("w.mat");
 
 s0 = [0; 0; pi + pi/8; 0];
 
