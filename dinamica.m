@@ -1,11 +1,11 @@
-function [sp, r, isTerminal] = dinamica(s, s0, m, M, L, g, d, a, Ts, X, V, THETA, OMEGA)
+function [sp, r, isTerminal] = dinamica(s, s0, m, M, L, g, d, a, Ts, X, V, THETA, OMEGA, z)
 
 % transform action in acceleration
 switch a
     case 1
-        u = 200;
+        u = 20;
     case 2
-        u = -200;
+        u = -20;
 end
 
 mmodel = @(t,x,u) model(s,m,M,L,g,d,u); 
@@ -32,26 +32,29 @@ sp = x(end,:);
 % sp(3) = max(min(sp(3), THETA(2)),THETA(1));
 % sp(4) = max(min(sp(4), OMEGA(2)),OMEGA(1));
 
-% Se raggiungo un limite solo su posizione, velocità o velocità angolare ricomincio da capo
-if sp(1) < X(1) || sp(1) > X(2) || sp(2) < V(1) || sp(2) > V(2) || sp(3) < THETA(1) || sp(3) > THETA(2) || sp(4) < OMEGA(1) || sp(4) > OMEGA(2)
-% if sp(1) < X(1) || sp(1) > X(2) || sp(2) < V(1) || sp(2) > V(2) || sp(4) < OMEGA(1) || sp(4) > OMEGA(2)
-%if sp(1) < X(1) || sp(1) > X(2)
-    sp = s0;
-end
-
-% % implement the impact dynamics
-% if xp == X(1) && vp < 0
-%     vp = 0;
+% Calcolo il reward
+% r = - ((sp(3)-pi) / (pi/4))^2;
+% if (sp(3)-pi)^2 < 0.05
+%     r = 0;
+% else
+%     r = -10;
 % end
 
-% define reward
-r = -1;
+% Se raggiungo un limite su posizione, velocità, angolo, o velocità angolare ricomincio da capo
+if sp(1) < X(1) || sp(1) > X(2) || sp(2) < V(1) || sp(2) > V(2) || sp(3) < THETA(1) || sp(3) > THETA(2) || sp(4) < OMEGA(1) || sp(4) > OMEGA(2)
+    sp = s0;
+    % sp = [(rand*2*X(2) - X(2)) / 2; 0; pi + ((2 * rand * (pi/4)) - (pi/4)); 0];
+    % sp = [(rand*2*X(2) - X(2)) / 5; (rand*2*V(2) - V(2)) / 5; pi + ((2 * rand * (pi/4)) - (pi/4)); (rand*2*OMEGA(2) - OMEGA(2)) / 5];
+end
 
-% define isTerminal
-% NON MI INTERESSA SE IL CARRELLO NON è CENTRATO IN 0
-% LA CONDIZIONE DI EQUILIBRIO è SULLA VELOCITà, SU THETA E SU OMEGA
-if ((sp(3)-pi)^2 + sp(4)^2) <= 0.01
+% Condizione sullo stato terminale: purtroppo in questo modo si mantiene
+% una velocità lineare a regime non nulla, inserendo nel vincolo terminale
+% anche una velocità < epsilon il modello non arriva mai a convergenza
+% Provare anche (0.01*sp(1)^2 + sp(2)^2 + (sp(3)-pi)^2 + sp(4)^2) < 0.01
+if (z*sp(1)^2 + (sp(3)-pi)^2 + sp(4)^2) <= 0.01
     isTerminal = 1;
+    r = 0;
 else
     isTerminal = 0;
+    r = -1;
 end

@@ -5,7 +5,7 @@ clc
 % number of actions
 A = 2;
 % number of episodes
-numEpisodes = 10000;
+numEpisodes = 100000;
 % exploration parameter
 epsilon = 1;
 % foresight parameter
@@ -15,17 +15,21 @@ alpha = 1e-2;
 
 % parametri del sistema
 mm = 0.5;
-MM = 2.5;
-L = 2;
+MM = 1;
+L = 1.5;
 g = -9.81;
-dd = 0.3;
+dd = 1; % questo non serve piu nel nuovo modello
 
-Ts = 0.005;
+% Il tempo di campionamento dev'essere abbastanza basso per avere una
+% simulazione liscia, e abbastanza alto per  non rallentare troppo gli
+% episodi. Se fosse troppo alto, si rischia di saltare il punto di
+% equilibrio.
+Ts = 0.025; 
 
 % size of the state space
 X = [-5 5];
 V = [-20 20];
-THETA = [pi - pi/4 pi + pi/4];
+THETA = [pi - pi/6 pi + pi/6];
 OMEGA = [-20 20];
 
 % parameters
@@ -39,6 +43,7 @@ d = (M+1)^4*N; % N ipercubi sovrapposti
 
 % initialize the weigth vector
 w = randn(d,A);
+% load("w.mat");
 
 % construct grids
 [cellX, cellV, cellTHETA, cellOMEGA] = get_cells(X, V, THETA, OMEGA, M, N);
@@ -46,14 +51,20 @@ w = randn(d,A);
 % total return
 G = zeros(numEpisodes,1);
 
-s0 = [0; 0; pi - pi/8; 0];
-
+z = 0.00001;
 for e = 1:numEpisodes
-    % initialize the episode 
-    %s = rand(4,1) - 0.5;
-    s = s0; % per ora parto sempre dallo stesso stato
-
-    disp(e)
+    % Questo è importante: quando all'interno di un episodio il cart-pole
+    % finisce in uno stato che è fuori dalla griglia, non riparte in uno
+    % stato casuale ma in quello da cui è partito, e questo finchè non
+    % termina l'episodio. Se così non fosse, potrebbe succedere che il
+    % cart-pole dopo essere finito in uno stato fuori dalla griglia riparte
+    % da uno stato terminale e questo viene ricompensato positivamente,
+    % facendo apprendere al modello un'informazione errata.
+    s0 = [0; 0; pi + ((2 * rand * (pi/6)) - (pi/6)); 0];
+    s = s0;
+    
+    disp(e);
+    % disp(s0);
 
     % get feature for initial state
     Fac = get_features(s, cellX, cellV, cellTHETA, cellOMEGA, M, N); % indici delle featur attive, 1 per ogni griglia
@@ -69,20 +80,43 @@ for e = 1:numEpisodes
     end
 
     % at the beginning is not terminal
-    isTerminal = false;
+    isTerminal = 0;
     
-    % k = 0;
     while ~isTerminal
-        % stampo lo stato
-        % if mod(k,1000) == 0
-        
-        % end
-        % k = k + 1;
-
         % take action a and observe sp and r
-        [sp, r, isTerminal] = dinamica(s, s0, mm, MM, L, g, dd, a, Ts, X, V, THETA, OMEGA);
+        [sp, r, isTerminal] = dinamica(s, s0, mm, MM, L, g, dd, a, Ts, X, V, THETA, OMEGA, z);
+
+        % integralError = integralError + (sp(3)-pi)^2;
+        % 
+        % if integralError < 0.1
+        %     isTerminal = 1;
+        %     integralError = 0;
+        % else
+        %     isTerminal = 0;
+        % end
+        
+        % % Aggiorno il vettore thetas (sarebbero i valori di theta dell'ultima parte della
+        % % simulazione); è una finestra scorrevole.
+        % for i = 2:length(errors)
+        %     errors(i-1) = errors(i);
+        % end
+        % errors(length(errors)) = (sp(3)-pi)^2 + sp(4)^2;
+        % % thetas(length(thetas)) = (sp(3)-pi)*Ts;
+        % % disp(thetas);
+        % 
+        % % Condizioni sullo stato terminale: voglio che il pendolo rimanga in
+        % % posizione verticale con un errore < 0.3 rad per 1 secondo
+        % integralErrors = sum(errors);
+        % 
+        % if integralErrors < 1
+        %     isTerminal = 1;
+        % else
+        %     isTerminal = 0;
+        % end
+
+        % if mod(e,500) == 1
         % drawpend(sp,mm,MM,L);
-        % disp(sp);
+        % end
 
         % update total return
         G(e) = G(e) + r;
@@ -114,14 +148,17 @@ for e = 1:numEpisodes
             Fac = Facp;
         end
     end
-    
-    epsilon = epsilon * 0.5;
+       
+    epsilon = max(0.2, epsilon * ((numEpisodes - 2.5)/numEpisodes));
+    z = min(0.1, z * 1.002);
 end
 
-%% plot
-%load("w.mat");
+save("w.mat","w");
 
-s0 = [0; 0; pi + pi/8; 0];
+%% plot
+load("w.mat");
+
+s0 = [0; 0; pi + ((2 * rand * (pi/6)) - (pi/6)); 0];
 
 historyX = [s(1)];
 historyV = [s(2)];
@@ -141,42 +178,87 @@ isTerminal = false;
 
 s = s0;
 
-while ~isTerminal
-    % take action a and observe sp and r
-    [sp, r, isTerminal] = dinamica(s, s0, mm, MM, L, g, dd, a, Ts, X, V, THETA, OMEGA);
+while true
+    [sp, r, isTerminal] = dinamica(s, s0, mm, MM, L, g, dd, a, Ts, X, V, THETA, OMEGA, 0);
+
     drawpend(sp,mm,MM,L);
+
+    disp(sp);
 
     historyX = [historyX, sp(1)];
     historyV = [historyV, sp(2)];
     historyTHETA = [historyTHETA, sp(3)];
     historyOMEGA = [historyOMEGA, sp(4)];
 
-    % update total return
-    G(e) = G(e) + r;
-    if isTerminal
-        % impose that next value is 0, delta = r + gamma*Qp(ap) -
-        % sum(w(Fac,a)) quindi gamma*Qp(ap) è 0
-        delta = r - sum(w(Fac,a)); 
-    else
-        % get active features at next state
-        Facp = get_features(sp, cellX, cellV, cellTHETA, cellOMEGA, M, N);
-        % compute next q function
-        Qp = sum(w(Facp,:));
-        % take greedy action
-        ap = find(Qp == max(Qp), 1, 'first');
-        % compute temporal difference error
-        delta = r + gamma*Qp(ap) - sum(w(Fac,a));
-    end
+    Facp = get_features(sp, cellX, cellV, cellTHETA, cellOMEGA, M, N);
+    % compute next q function
+    Qp = sum(w(Facp,:));
+    % take greedy action
+    ap = find(Qp == max(Qp), 1, 'first');
+    % compute temporal difference error
+    delta = r + gamma*Qp(ap) - sum(w(Fac,a));
     % update weigth vector
     w(Fac,a) = w(Fac,a) + alpha*delta;
-    
-    if ~isTerminal
-        % update state, action and features
-        s = sp;
-        a = ap;
-        Fac = Facp;
-    end
+
+    % update state, action and features
+    s = sp;
+    a = ap;
+    Fac = Facp;
 end
+
+% while ~isTerminal
+%     % take action a and observe sp and r
+%     [sp, r, isTerminal] = dinamica(s, s0, mm, MM, L, g, dd, a, Ts, X, V, THETA, OMEGA);
+% 
+%     % Aggiorno il vettore thetas (sarebbero i valori di theta dell'ultima parte della
+%     % simulazione); è una finestra scorrevole.
+%     % for i = 2:length(thetas)
+%     %     thetas(i-1) = thetas(i);
+%     % end
+%     % thetas(length(thetas)) = (sp(3)-pi)*Ts;
+%     % 
+%     % % Condizioni sullo stato terminale
+%     % integralTheta = sum(abs(thetas));
+%     % 
+%     % if integralTheta < 0.05
+%     %     isTerminal = 1;
+%     % else
+%     %     isTerminal = 0;
+%     % end
+% 
+%     drawpend(sp,mm,MM,L);
+% 
+%     historyX = [historyX, sp(1)];
+%     historyV = [historyV, sp(2)];
+%     historyTHETA = [historyTHETA, sp(3)];
+%     historyOMEGA = [historyOMEGA, sp(4)];
+% 
+%     % update total return
+%     G(e) = G(e) + r;
+%     if isTerminal
+%         % impose that next value is 0, delta = r + gamma*Qp(ap) -
+%         % sum(w(Fac,a)) quindi gamma*Qp(ap) è 0
+%         delta = r - sum(w(Fac,a)); 
+%     else
+%         % get active features at next state
+%         Facp = get_features(sp, cellX, cellV, cellTHETA, cellOMEGA, M, N);
+%         % compute next q function
+%         Qp = sum(w(Facp,:));
+%         % take greedy action
+%         ap = find(Qp == max(Qp), 1, 'first');
+%         % compute temporal difference error
+%         delta = r + gamma*Qp(ap) - sum(w(Fac,a));
+%     end
+%     % update weigth vector
+%     w(Fac,a) = w(Fac,a) + alpha*delta;
+% 
+%     if ~isTerminal
+%         % update state, action and features
+%         s = sp;
+%         a = ap;
+%         Fac = Facp;
+%     end
+% end
 
 figure(1);
 plot(historyX,historyV);
@@ -185,4 +267,3 @@ axis([X V]);
 figure(2);
 plot(historyTHETA,historyOMEGA);
 axis([THETA OMEGA]);
-
