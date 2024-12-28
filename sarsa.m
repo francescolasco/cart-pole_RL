@@ -5,7 +5,7 @@ clc
 % number of actions
 A = 2;
 % number of episodes
-numEpisodes = 100000;
+numEpisodes = 10000;
 % exploration parameter
 epsilon = 1;
 % foresight parameter
@@ -24,16 +24,16 @@ dd = 1; % questo non serve piu nel nuovo modello
 % simulazione liscia, e abbastanza alto per  non rallentare troppo gli
 % episodi. Se fosse troppo alto, si rischia di saltare il punto di
 % equilibrio.
-Ts = 0.025; 
+Ts = 0.02;
 
 % size of the state space
 X = [-5 5];
 V = [-20 20];
-THETA = [pi - pi/6 pi + pi/6];
+THETA = [pi - pi/8 pi + pi/8];
 OMEGA = [-20 20];
 
 % parameters
-M = 10; % number of cells per grid
+M = 15; % number of cells per grid
 N = 10; % number of grids
 
 % dimension of the weight vector
@@ -51,7 +51,10 @@ w = randn(d,A);
 % total return
 G = zeros(numEpisodes,1);
 
-z = 0.00001;
+maxSteps = 10000;
+
+s0 = [0; 0; pi + 0.05; 0];
+
 for e = 1:numEpisodes
     % Questo è importante: quando all'interno di un episodio il cart-pole
     % finisce in uno stato che è fuori dalla griglia, non riparte in uno
@@ -60,7 +63,14 @@ for e = 1:numEpisodes
     % cart-pole dopo essere finito in uno stato fuori dalla griglia riparte
     % da uno stato terminale e questo viene ricompensato positivamente,
     % facendo apprendere al modello un'informazione errata.
-    s0 = [0; 0; pi + ((2 * rand * (pi/6)) - (pi/6)); 0];
+    
+    % Stati iniziali per la prima parte
+    % s0 = [0; 0; pi + ((2 * rand * (pi/6)) - (pi/6)); 0];
+    
+
+    % Stati iniziali per la seconda parte
+    % s0 = [rand*8 - 4; 0; pi; 0];
+
     s = s0;
     
     disp(e);
@@ -81,10 +91,53 @@ for e = 1:numEpisodes
 
     % at the beginning is not terminal
     isTerminal = 0;
+
+    step = 0;
     
-    while ~isTerminal
+    while ~isTerminal && step < maxSteps
+        step = step + 1;
+
         % take action a and observe sp and r
-        [sp, r, isTerminal] = dinamica(s, s0, mm, MM, L, g, dd, a, Ts, X, V, THETA, OMEGA, z);
+        sp = dinamica(s, mm, MM, L, g, a, Ts);
+
+        % r = -((sp(3)-pi)^2 + sp(4)^2);
+
+        % se raggiungo lo stato d'equilibrio, assegno reward positivo
+        if (0.001*sp(1)^2 + (sp(3)-pi)^2 + sp(4)^2) < 0.001
+            isTerminal = 0;
+            r = 1;
+        elseif sp(1) < X(1) || sp(1) > X(2) || sp(2) < V(1) || sp(2) > V(2) || sp(3) < THETA(1) || sp(3) > THETA(2) || sp(4) < OMEGA(1) || sp(4) > OMEGA(2)
+            isTerminal = 1;
+            r = 0;
+        else
+            isTerminal = 0;
+            r = 0;
+        end
+        % se raggiungo una configurazione fuori dallo spazio di stato,
+        % termino l'episodio
+
+        % if ((sp(3)-pi)^2 + sp(4)^2) <= 0.001
+        %     isTerminal = 1;
+        %     r = 0;
+        % else
+        %     isTerminal = 0;
+        %     r = -10;
+        % end
+
+        % if ((sp(3)-pi)^2 + sp(4)^2) <= 0.01 && step > MaxSteps 
+        %     isTerminal = 1;
+        %     r = 0;
+        % elseif ((sp(3)-pi)^2 + sp(4)^2) <= 0.01 && step <= MaxSteps 
+        %     step = step + 1;
+        %     isTerminal = 0;
+        %     r = -1;
+        % else
+        %     step = 0;
+        %     isTerminal = 0;
+        %     r = -1;
+        % end
+        % 
+        % disp(step);
 
         % integralError = integralError + (sp(3)-pi)^2;
         % 
@@ -114,9 +167,11 @@ for e = 1:numEpisodes
         %     isTerminal = 0;
         % end
 
-        % if mod(e,500) == 1
-        % drawpend(sp,mm,MM,L);
-        % end
+        if mod(e,500) == 1
+            drawpend(sp,mm,MM,L);
+        else
+            close all;
+        end
 
         % update total return
         G(e) = G(e) + r;
@@ -149,24 +204,22 @@ for e = 1:numEpisodes
         end
     end
        
-    epsilon = max(0.2, epsilon * ((numEpisodes - 2.5)/numEpisodes));
-    z = min(0.1, z * 1.002);
+    % epsilon = max(0.2, epsilon * ((numEpisodes - 2.5)/numEpisodes));
+    epsilon = max(0.05, epsilon * 0.9995);
 end
 
 save("w.mat","w");
 
 %% plot
-load("w.mat");
+close all
+clc
 
-s0 = [0; 0; pi + ((2 * rand * (pi/6)) - (pi/6)); 0];
+% load("w.mat");
 
-historyX = [s(1)];
-historyV = [s(2)];
-historyTHETA = [s(3)];
-historyOMEGA = [s(4)];
+s0 = [0; 0; pi + 0.01; 0];
 
 % get feature for initial state
-Fac = get_features(s, cellX, cellV, cellTHETA, cellOMEGA, M, N); % indici delle featur attive, 1 per ogni griglia
+Fac = get_features(s, cellX, cellV, cellTHETA, cellOMEGA, M, N);
 
 % get quality function
 Q = sum(w(Fac,:));
@@ -179,16 +232,11 @@ isTerminal = false;
 s = s0;
 
 while true
-    [sp, r, isTerminal] = dinamica(s, s0, mm, MM, L, g, dd, a, Ts, X, V, THETA, OMEGA, 0);
+    sp = dinamica(s, mm, MM, L, g, a, Ts);
 
     drawpend(sp,mm,MM,L);
 
-    disp(sp);
-
-    historyX = [historyX, sp(1)];
-    historyV = [historyV, sp(2)];
-    historyTHETA = [historyTHETA, sp(3)];
-    historyOMEGA = [historyOMEGA, sp(4)];
+    % disp(sp);
 
     Facp = get_features(sp, cellX, cellV, cellTHETA, cellOMEGA, M, N);
     % compute next q function
@@ -259,11 +307,3 @@ end
 %         Fac = Facp;
 %     end
 % end
-
-figure(1);
-plot(historyX,historyV);
-axis([X V]);
-
-figure(2);
-plot(historyTHETA,historyOMEGA);
-axis([THETA OMEGA]);
