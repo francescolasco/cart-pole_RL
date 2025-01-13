@@ -1,14 +1,14 @@
-function [sp, r, isTerminal] = dinamica(s, s0, m, M, L, g, d, a, Ts, X, V, THETA, OMEGA, z)
+function sp = dinamica(s, m, M, L, g, a, Ts)
 
 % transform action in acceleration
 switch a
     case 1
-        u = 20;
+        u = 30;
     case 2
-        u = -20;
+        u = -30;
 end
 
-mmodel = @(t,x,u) model(s,m,M,L,g,d,u); 
+mmodel = @(t,x,u) model(s,m,M,L,g,u); 
 [~, x] = ode45(@(t, x) mmodel(t, s, u), [0,Ts], s);
 sp = x(end,:);
 
@@ -40,21 +40,10 @@ sp = x(end,:);
 %     r = -10;
 % end
 
-% Se raggiungo un limite su posizione, velocità, angolo, o velocità angolare ricomincio da capo
-if sp(1) < X(1) || sp(1) > X(2) || sp(2) < V(1) || sp(2) > V(2) || sp(3) < THETA(1) || sp(3) > THETA(2) || sp(4) < OMEGA(1) || sp(4) > OMEGA(2)
-    sp = s0;
-    % sp = [(rand*2*X(2) - X(2)) / 2; 0; pi + ((2 * rand * (pi/4)) - (pi/4)); 0];
-    % sp = [(rand*2*X(2) - X(2)) / 5; (rand*2*V(2) - V(2)) / 5; pi + ((2 * rand * (pi/4)) - (pi/4)); (rand*2*OMEGA(2) - OMEGA(2)) / 5];
-end
+
 
 % Condizione sullo stato terminale: purtroppo in questo modo si mantiene
 % una velocità lineare a regime non nulla, inserendo nel vincolo terminale
 % anche una velocità < epsilon il modello non arriva mai a convergenza
 % Provare anche (0.01*sp(1)^2 + sp(2)^2 + (sp(3)-pi)^2 + sp(4)^2) < 0.01
-if (z*sp(1)^2 + (sp(3)-pi)^2 + sp(4)^2) <= 0.01
-    isTerminal = 1;
-    r = 0;
-else
-    isTerminal = 0;
-    r = -1;
-end
+
