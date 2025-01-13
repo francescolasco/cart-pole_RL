@@ -19,3 +19,14 @@ else
     isTerminal = 0;
     r = 1;
 end
+
+% if (sp(3)> pi+0.07)||(sp(3) < pi-0.07)
+%     isTerminal = 1;
+%     r = -5;
+% elseif (sqrt(sp(1)^2) > 2)
+%     isTerminal = 1;
+%     r = -7;
+% else
+%     isTerminal = 0;
+%     r = 1;
+% end

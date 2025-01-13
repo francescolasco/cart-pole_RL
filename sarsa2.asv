@@ -58,7 +58,6 @@ G = zeros(numEpisodes,1);
 
 maxSteps = 4000;
 
-%%
 
 for e = 1:numEpisodes
     s0 = [ 0; 0; pi + ((2 * rand * marg) - marg); 0];
