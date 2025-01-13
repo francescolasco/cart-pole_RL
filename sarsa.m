@@ -33,7 +33,7 @@ THETA = [pi - pi/8 pi + pi/8];
 OMEGA = [-20 20];
 
 % parameters
-M = 15; % number of cells per grid
+M = 10; % number of cells per grid
 N = 10; % number of grids
 
 % dimension of the weight vector
@@ -53,7 +53,9 @@ G = zeros(numEpisodes,1);
 
 maxSteps = 10000;
 
-s0 = [0; 0; pi + 0.05; 0];
+tau = 0.1;
+
+s0 = [0; 0; pi + ((rand*0.3)-0.15); 0];
 
 for e = 1:numEpisodes
     % Questo è importante: quando all'interno di un episodio il cart-pole
@@ -103,7 +105,7 @@ for e = 1:numEpisodes
         % r = -((sp(3)-pi)^2 + sp(4)^2);
 
         % se raggiungo lo stato d'equilibrio, assegno reward positivo
-        if (0.001*sp(1)^2 + (sp(3)-pi)^2 + sp(4)^2) < 0.001
+        if sp(1)^2 < 1 && (sp(3)-pi)^2 < 0.01 && sp(4)^2 < 1
             isTerminal = 0;
             r = 1;
         elseif sp(1) < X(1) || sp(1) > X(2) || sp(2) < V(1) || sp(2) > V(2) || sp(3) < THETA(1) || sp(3) > THETA(2) || sp(4) < OMEGA(1) || sp(4) > OMEGA(2)
@@ -167,10 +169,10 @@ for e = 1:numEpisodes
         %     isTerminal = 0;
         % end
 
-        if mod(e,500) == 1
-            drawpend(sp,mm,MM,L);
+        if mod(step,3) == 0
+            % drawpend(sp,mm,MM,L);
         else
-            close all;
+            % close all;
         end
 
         % update total return
@@ -205,18 +207,18 @@ for e = 1:numEpisodes
     end
        
     % epsilon = max(0.2, epsilon * ((numEpisodes - 2.5)/numEpisodes));
-    epsilon = max(0.05, epsilon * 0.9995);
+    epsilon = max(0.5, epsilon * 0.9999);
 end
 
-save("w.mat","w");
+% save("w-softmax.mat","w");
 
 %% plot
 close all
 clc
 
-% load("w.mat");
+load("w.mat");
 
-s0 = [0; 0; pi + 0.01; 0];
+s0 = [0; 0; pi + ((rand*0.3)-0.15); 0];
 
 % get feature for initial state
 Fac = get_features(s, cellX, cellV, cellTHETA, cellOMEGA, M, N);

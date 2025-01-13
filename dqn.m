@@ -1,275 +1,226 @@
-clear all
+clear all %#ok<CLALL>
 close all
 clc
-
-% number of actions
-A = 2;
+    
+% numero azioni
+numActions = 2;
+% actions
+actions = [-10 10];
 % number of episodes
-numEpisodes = 5000;
+numEpisodes = 1000;
 % exploration parameter
-epsilon = 0.5;
+epsilon = 1;
+epsilonDecay = 0.999;
 % foresight parameter
-gamma = 0.95;
+gamma = 0.999;
+% metric parameters (mean)
+mean = 0;
+alpha = 0.95;
 
-maxSteps = 1000;
+maxSteps = 500;
 
-% parametri del sistema
-mm = 0.5;
-MM = 1;
-L = 1.5;
-g = -9.81;
+env = rlPredefinedEnv("CartPole-Discrete");
 
-% Dimensione dello spazio di stato
-X = [-5 5];
-V = [-25 25];
-THETA = [pi - pi/4 pi + pi/4];
-OMEGA = [-20 20];
+%% carico la rete neurale
 
-% Il tempo di campionamento dev'essere abbastanza basso per avere una
-% simulazione liscia, e abbastanza alto per  non rallentare troppo gli
-% episodi. Se fosse troppo alto, si rischia di saltare il punto di
-% equilibrio.
-Ts = 0.025;
+% iperparametri
+experienceBufferSize = 10000;
+batchSize = 128;
+lr = 0.001;
+lrDecay = 0.999;
+freqUpdate = 1;
+targetUpdate = 4;
+softUpdate = 0;
+tau = 0.1;
 
-replayBufferSize = 5000;
-batchSize = 100;
+obsInfo = getObservationInfo(env);
+actInfo = getActionInfo(env);
+initOpts = rlAgentInitializationOptions(NumHiddenUnit=128);
+agent = rlDQNAgent(obsInfo,actInfo,initOpts);
 
-inputLayer = 4;
-layer1 = 50;
-layer2 = 25;
-outputLayer = 2;
+criticNet = getModel(getCritic(agent));
 
-% % costruisco rete neurale
-net = network;
+targetNet = criticNet;
 
-% Imposta il numero di input e output
-net.numInputs = 1;
-net.numLayers = 3;
-net.inputConnect = [1; 0; 0];
-net.layerConnect = [0 0 0; 1 0 0; 0 1 0];
-net.outputConnect = [0 0 1]; 
+% inizializzo le code per mantenere le esperienze
+experienceBufferS = zeros(4,experienceBufferSize);
+experienceBufferA = zeros(1,experienceBufferSize);
+experienceBufferR = zeros(1,experienceBufferSize);
+experienceBufferSp = zeros(4,experienceBufferSize);
+experienceBufferT = zeros(1,experienceBufferSize);
 
-net.input.size = inputLayer;
-net.layers{1}.dimensions = layer1;
-net.layers{2}.dimensions = layer2;
-net.layers{3}.dimensions = outputLayer;
+% target
+y = zeros(1,batchSize);
 
-% Funzioni di attivazione (poslin sarebbe ReLU)
-net.layers{1}.transferFcn = 'poslin'; 
-net.layers{2}.transferFcn = 'poslin';
-net.layers{3}.transferFcn = 'purelin'; 
-
-net.performFcn = 'mse'; % imposta mse come metrica d'errore
-
-net.trainFcn = 'traingd'; % imposta gradiente come alg. di ott.
-net.trainParam.showWindow = false;  % Disattiva la finestra di riepilogo
-net.trainParam.lr = 0.05;
-
-% Inizializzazione di He dei pesi
-net.IW{1} = sqrt(2 / inputLayer) * randn(layer1,inputLayer);
-net.LW{2,1} = sqrt(2 / layer1) * randn(layer2,layer1);
-net.LW{3,2} = sqrt(2 / layer2) * randn(outputLayer,layer2);
-
-net_target = net;  % Copia della rete principale
-update_target_steps = 50;  % Ogni 50 episodi aggiorna net_target
-
-% Costruisco rete neurale con altro metodo (MA NON CAMBIA NIENTE)
-% layers = [
-%     featureInputLayer(4)
-%     fullyConnectedLayer(50)
-%     reluLayer
-%     fullyConnectedLayer(50)
-%     reluLayer
-%     fullyConnectedLayer(2)];
-% 
-% options = trainingOptions('rmsprop', ...
-%     'InitialLearnRate', 0.0005, ...
-%     'ExecutionEnvironment', 'parallel-gpu', ...
-%     'Verbose', false);
-% 
-% net = dlnetwork(layers);
+% momenti per adam
+averageGrad = [];
+averageSqGrad = [];
 
 %% inizio addestramento
 
-% inizializzo le code
-replayBufferS = zeros(inputLayer,replayBufferSize);
-replayBufferY = zeros(outputLayer,replayBufferSize);
+% total return
+G = zeros(numEpisodes,1);
+means = zeros(numEpisodes,1);
 
-% questo contatore indica quanto è riempita la coda. All'inizio è vuota
-m = 0;
+% Loss
+losses = zeros(numEpisodes,1);
 
-% warning('off', 'all');
-s0 = [0; 0; pi + 0.05; 0];
-
+m = 0; % contatore per riempimento code e step totali dall'inizio
 for e = 1:numEpisodes
-    disp(e);
-
-    % ogni 10 episodi vedo come sta andando
-    if mod(e,10) == 0
-        % Stato iniziale
-        s = s0;
-        while true
-            sNorm = normalize(s);
-            Q = net(sNorm);
-            a = find(Q == max(Q), 1, 'first'); % take greedy action wrt Q
-        
-            sp = dinamica(s, mm, MM, L, g, a, Ts);
-            sp = sp(:);
-        
-            if sp(1) < X(1) || sp(1) > X(2) || sp(2) < V(1) || sp(2) > V(2) || sp(3) < THETA(1) || sp(3) > THETA(2) || sp(4) < OMEGA(1) || sp(4) > OMEGA(2)
-                break;
-            end
-        
-            drawpend(sp,mm,MM,L);
-        
-            % update state
-            s = sp;
-        end
-    end
+    fprintf('Episodio: %d\n', e);
 
     % Stato iniziale
-    s = s0;
-
-    % normalizzo lo stato in valori compresi fra -1 e 1
-    sNorm = normalizeState(s);
-
-    % Prende la Q facendo uno step di forward-propagation nella rete
-    Q = net(sNorm); 
-        
+    s = env.reset();
+ 
     % All'inizio lo stato non è mai terminale
     isTerminal = 0;
     
-    % Questi sono contatori che servono per gestire le strutture di dati 
-    % usate per memorizzare gli stati visitati
-    k = 0;
-    n = 0;
-    elapsed = 0;
+    n = 0; % contatore per numero passi simulazione
     while ~isTerminal && n < maxSteps
-        k = k + 1;
         n = n + 1;
+
+        % Prende la Q facendo uno step di forward-propagation nella rete
+        Q = forward(criticNet,dlarray(s,'CB'));
 
         % Prendo l'azione secondo il metodo epsilon-greedy
         if rand < epsilon
-            a = randi(A);
+            a = randi(numActions);
         else
-            a = find(Q == max(Q), 1, 'first');
+            [~,a] = max(Q);
         end
+        action = actions(a);
 
-        % Faccio un passo della dinamica e prendo lo stato successivo sp
-        sp = dinamica(s, mm, MM, L, g, a, Ts);
-        sp = sp(:);
-        spNorm = normalize(sp);
-         
-        % Questo è un modo per mostrare a schermo il cart-pole senza 
-        % rallentare troppo la simulazione
-        if mod(k,2) == 0
-            % drawpend(sp,mm,MM,L);
-        end
-        
-        % assegno il reward nello stato terminale
-        % if ((sp(3)-pi)^2 + sp(4)^2) < 0.001
-        %     isTerminal = 1;
-        %     r = 0;
-        % else
-        %     isTerminal = 0;
-        %     r = -10;
-        % end
+        [sp, r, isTerminal, ~] = env.step(action);
+       
+        % plot(env);
 
-        r = -10;
-        isTerminal = 0;
-        
-        % se raggiungo lo stato d'equilibrio, assegno reward positivo
-        if ((sp(3)-pi)^2 + sp(4)^2) < 0.001
-            r = 1;
-        end
-        
-        % se raggiungo una configurazione fuori dallo spazio di stato,
-        % termino l'episodio
-        if sp(1) < X(1) || sp(1) > X(2) || sp(2) < V(1) || sp(2) > V(2) || sp(3) < THETA(1) || sp(3) > THETA(2) || sp(4) < OMEGA(1) || sp(4) > OMEGA(2)
-            isTerminal = 1;
-        end
-
-        % calcolo il target secondo la legge del DQN
-        y = Q;
-        % Qp = net(spNorm);
-        Qp = net_target(spNorm);
-        y(a) = r + gamma*max(Qp);
+        % ritorno complessivo
+        G(e) = G(e) + r;
         
         % accumulo le informazioni in una coda (accesso circolare)
-        replayBufferS(:,mod(m,replayBufferSize)+1) = sNorm;
-        replayBufferY(:,mod(m,replayBufferSize)+1) = y;
-
+        experienceBufferS(:,mod(m,experienceBufferSize)+1) = s;
+        experienceBufferA(:,mod(m,experienceBufferSize)+1) = a;
+        experienceBufferR(:,mod(m,experienceBufferSize)+1) = r;
+        experienceBufferSp(:,mod(m,experienceBufferSize)+1) = sp;
+        experienceBufferT(:,mod(m,experienceBufferSize)+1) = isTerminal;
+        
         m = m + 1;
-
-        % aggiorno la rete ogni batchSize passi oppure quando raggiungo lo
-        % stato terminale, ma solo se prima ho esperienze a sufficienza
-        if m >= batchSize && (isTerminal || k == batchSize)
-            % disp('updating network');
-
+        % aggiorno la rete ogni freqUpdate passi ma solo se prima ho 
+        % esperienze a sufficienza
+        if m >= batchSize
             % estraggo batchSize campioni casuali dalla coda per evitare la
             % correlazione fra campioni contigui
-            index = randperm(min(m,replayBufferSize),batchSize);
-            S = replayBufferS(:,index);
-            Y = replayBufferY(:,index);
+            index = randperm(min(m,experienceBufferSize),batchSize);
+            S = experienceBufferS(:,index); % stati
+            A = experienceBufferA(:,index); % azioni
+            R = experienceBufferR(:,index); % rewards
+            Sp = experienceBufferSp(:,index); % stati successivi
+            T = experienceBufferT(:,index); % flag stati terminali
             
+            % Calcolo la Q per gli stati successivi
+            Qp = forward(targetNet,dlarray(Sp,'CB'));
             
-            tic;
-            
-            % Questo lo facevo per velocizzare, ma genera un errore e non
-            % ho capito il perchè. Praticamente sposto manualmente i dati
-            % su gpu
-            % S = dlarray(s, 'CB');  % Converti lo stato in deep learning array
-            % S = gpuArray(S);       % Sposta l'array sulla GPU
-            % Y = dlarray(Y, 'CB');
-            % Y = gpuArray(Y);
+            % Aggiorno il target
+            y(:,T==1) = R(:,T==1);
+            y(:,T==0) = R(:,T==0) + gamma * max(Qp(:,T==0));
+            y = gpuArray(dlarray(y,'CB'));
 
-            % addestro la rete sui campioni casuali, usando calcolo
-            % parallelo sui core della sola gpu
-            net = train(net, S, Y);
-          
-            % resetto l'indice di batch
-            k = 0;
+            S = gpuArray(dlarray(S,'CB'));
 
-            disp(toc);
+            % for i = 1:batchSize
+            %     Y(:,i) = forward(criticNet,dlarray(S(:,i),'CB'));
+            %     Qp = forward(targetNet,dlarray(S(:,i),'CB'));
+            % 
+            %     if T(:,i)
+            %         Y(A(:,i),i) = R(:,i);
+            %     else
+            %         Y(A(:,i),i) = R(:,i) + gamma * max(Qp);
+            %     end
+            % end
+
+            % Aggiorno la rete
+            colIndex = linspace(1,batchSize,batchSize);
+            indices = gpuArray(dlarray(A + (colIndex-1)*2,'CB'));
+            [loss,g] = dlfeval(@optimize,criticNet,S,y,indices);
+
+            losses(e) = losses(e) + loss;
+                
+            % saturare gradienti
+            
+            [criticNet,averageGrad,averageSqGrad] = adamupdate(criticNet,g,averageGrad,averageSqGrad,m,lr);
         end
-
-        if mod(e, update_target_steps) == 0
-            net_target = net;
+        
+        if softUpdate
+            % soft target update
+            targetNet.Learnables.Value{1} = tau*criticNet.Learnables.Value{1} + (1-tau)*targetNet.Learnables.Value{1};
+            targetNet.Learnables.Value{2} = tau*criticNet.Learnables.Value{2} + (1-tau)*targetNet.Learnables.Value{2};
+            targetNet.Learnables.Value{3} = tau*criticNet.Learnables.Value{3} + (1-tau)*targetNet.Learnables.Value{3};
+            targetNet.Learnables.Value{4} = tau*criticNet.Learnables.Value{4} + (1-tau)*targetNet.Learnables.Value{4};
+            targetNet.Learnables.Value{5} = tau*criticNet.Learnables.Value{5} + (1-tau)*targetNet.Learnables.Value{5};
+            targetNet.Learnables.Value{6} = tau*criticNet.Learnables.Value{6} + (1-tau)*targetNet.Learnables.Value{6};
+        else
+            if mod(m,targetUpdate) == 0
+                targetNet.Learnables.Value = criticNet.Learnables.Value;
+            end
         end
-
         s = sp;
-        sNorm = spNorm;
-        Q = Qp;
+           
+        epsilon = max(0.01, epsilon * epsilonDecay); 
+        % lr = max(0.0001, lr * lrDecay);
     end
-       
-    epsilon = max(0.05, epsilon * 0.9995);
+
+    mean = (1-alpha) * G(e) + alpha * mean;
+    means(e) = mean;
+
+    losses(e) = losses(e) / n;
+
+    fprintf('Reward cumulativo: %d\n', G(e));
+    fprintf('Reward cumulativo medio: %f\n', mean);
+    fprintf('Loss: %f\n', losses(e));
+    fprintf('epsilon: %f\n', epsilon);
+    fprintf('learning-rate: %f\n', lr);
+    fprintf('-----\n\n');
+
+    if G(e) >= maxSteps
+        break;
+    end
 end
 
-save('net.mat', 'net');
+% save('net.mat', 'net');
 
-%% plot
+%% test
 close all
 
-% load("net.mat");
+% load("trainednet.mat");
 
-% s0 = [0; 0; pi + ((2 * rand * (pi/6)) - (pi/6)); 0];
-s0 = [0; 0; pi + 0.05; 0];
-s = s0;
+s = env.reset();
+for i=1:maxSteps
+    
+    Q = predict(criticNet,s');
+    [~,a] = max(Q);
+    action = actions(a);
 
-while true
-    sNorm = normalize(s);
-    Q = net(sNorm);
-    a = find(Q == max(Q), 1, 'first'); % take greedy action wrt Q
+    [sp, ~, isTerminal, ~] = env.step(action);
 
-    sp = dinamica(s, mm, MM, L, g, a, Ts);
-    sp = sp(:);
+    plot(env);
 
-    if sp(1) < X(1) || sp(1) > X(2) || sp(2) < V(1) || sp(2) > V(2) || sp(3) < THETA(1) || sp(3) > THETA(2) || sp(4) < OMEGA(1) || sp(4) > OMEGA(2)
-        sp = s0;
-    end
+    % pause(0.05);
 
-    drawpend(sp,mm,MM,L);
-
-    % update state
     s = sp;
+
+    % Interrompe la simulazione se l'episodio è finito
+    if isTerminal
+        break;
+    end
+end
+
+%% optimization function
+
+function [f,g] = optimize(net,S,y,indices)
+% Calculate objective using supported functions for dlarray
+    Q = forward(net,S);
+    % questo mi seleziona solamente le righe corrispondenti alle azioni
+    % effettivamente scelte in un dato stato
+    f = mse(dlarray(Q(indices),'CB'),y);
+    g = dlgradient(f,net.Learnables);
 end

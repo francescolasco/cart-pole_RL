@@ -3,9 +3,9 @@ function sp = dinamica(s, m, M, L, g, a, Ts)
 % transform action in acceleration
 switch a
     case 1
-        u = 20;
+        u = 30;
     case 2
-        u = -20;
+        u = -30;
 end
 
 mmodel = @(t,x,u) model(s,m,M,L,g,u); 

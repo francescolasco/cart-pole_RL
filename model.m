@@ -1,4 +1,4 @@
-function dx = model(x,m,M,L,g,d,u)
+function dx = model(x,m,M,L,g,u)
 
 Sx = sin(x(3));
 Cx = cos(x(3));
