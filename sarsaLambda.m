@@ -41,6 +41,9 @@ d = (M+1)^4*N; % N ipercubi sovrapposti
 w = randn(d,A);
 % load("w.mat");
 
+% initialize eligibility traces
+et = zeros(d,A); % tante quante le coppie feature/stato
+
 % construct grids
 [cellX, cellV, cellTHETA, cellOMEGA] = get_cells(X, V, THETA, OMEGA, M, N);
 
@@ -50,10 +53,15 @@ G = zeros(numEpisodes,1);
 mean = 0;
 tau = 0.95;
 means = zeros(numEpisodes,1);
+lambda = 0.8;
 
 %% addestramento
 
 for e = 1:numEpisodes
+    
+    % initialize eligibility traces
+    et = zeros(d,A); % tante quante le coppie feature/stato
+
     fprintf('Episodio: %d\n', e);
 
     % Stato iniziale
@@ -90,6 +98,9 @@ for e = 1:numEpisodes
             % sum(w(Fac,a)) quindi gamma*Qp(ap) è 0
             delta = r - sum(w(Fac,a)); 
         else
+            % update eligibility traces
+            et(Fac,a) = et(Fac,a) + 1; %accumulating traces
+            
             % get active features at next state
             Facp = get_features(sp, cellX, cellV, cellTHETA, cellOMEGA, M, N);
             % compute next q function
@@ -102,10 +113,12 @@ for e = 1:numEpisodes
             end
             % compute temporal difference error
             delta = r + gamma*Qp(ap) - sum(w(Fac,a));
+
+            et = gamma*lambda*et;
         end
         % update weigth vector
-        w(Fac,a) = w(Fac,a) + alpha*delta;
-        
+        w = w + alpha*delta*et;
+                
         if ~isTerminal
             % update state, action and features
             s = sp;
