@@ -123,12 +123,15 @@ for e = 1:numEpisodes
             y(:,T==1) = R(:,T==1);
             y(:,T==0) = R(:,T==0) + gamma * max(Qp(:,T==0));
             
-            y = gpuArray(dlarray(y,'CB'));
-            S = gpuArray(dlarray(S,'CB'));
+            %y = gpuArray(dlarray(y,'CB'));
+            %S = gpuArray(dlarray(S,'CB'));
+            y = dlarray(y,'CB');
+            S = dlarray(S,'CB');
 
             % Aggiorno la rete
             colIndex = linspace(1,batchSize,batchSize);
-            indices = gpuArray(dlarray(A + (colIndex-1)*2,'CB'));
+            %indices = gpuArray(dlarray(A + (colIndex-1)*2,'CB'));
+            indices = dlarray(A + (colIndex-1)*2,'CB');
             [loss,g] = dlfeval(@optimize,criticNet,S,y,indices);
 
             losses(e) = losses(e) + loss;
@@ -167,7 +170,7 @@ end
 %% test
 close all
 
-% load("trainednet.mat");
+load("trainednet.mat");
 
 s = env.reset();
 for i=1:maxSteps
