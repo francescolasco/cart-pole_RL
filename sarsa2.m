@@ -7,7 +7,7 @@ A = 2;
 % actions
 actions = [-10 10];
 % number of episodes
-numEpisodes = 5000;
+numEpisodes = 100000;
 % exploration parameter
 epsilon = 1;
 epsilonDecay = 0.9999;
@@ -52,6 +52,8 @@ tau = 0.95;
 means = zeros(numEpisodes,1);
 
 %% addestramento
+
+counter = 0;
 
 for e = 1:numEpisodes
     fprintf('Episodio: %d\n', e);
@@ -115,7 +117,11 @@ for e = 1:numEpisodes
 
         epsilon = max(0.01, epsilon * epsilonDecay);
     end
-
+    if G(e) == 500
+        counter = counter + 1;
+    else
+        counter = 0;
+    end
     mean = (1-tau) * G(e) + tau * mean;
     means(e) = mean;
 
@@ -124,7 +130,11 @@ for e = 1:numEpisodes
     fprintf('Epsilon: %f\n', epsilon);
     fprintf('-----\n\n');
     
-    if means(e) >= 0.9*maxSteps % metto una tolleranza
+    %if means(e) >= 0.9*maxSteps % metto una tolleranza
+    %    break;
+    %end
+
+    if counter >= 25
         break;
     end
 end
@@ -140,7 +150,7 @@ hold off
 
 close all
 
-load("w.mat");
+%load("w.mat");
 
 s = env.reset();
 

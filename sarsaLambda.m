@@ -34,7 +34,6 @@ N = 10; % number of grids
 d = (M+1)^4*N; % N ipercubi sovrapposti
 
 
-
 % VALUTARE SE CONVIENE FARE GLI IPERCUBI CON LATI DI DIMENSIONI DIVERSE
 
 % initialize the weigth vector
@@ -153,7 +152,7 @@ hold off
 
 close all
 
-load("w.mat");
+%load("w.mat");
 
 s = env.reset();
 
