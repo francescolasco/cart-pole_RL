@@ -7,7 +7,7 @@ A = 2;
 % actions
 actions = [-10 10];
 % number of episodes
-numEpisodes = 100000;
+numEpisodes = 1000000;
 % exploration parameter
 epsilon = 1;
 epsilonDecay = 0.9999;
@@ -52,7 +52,7 @@ tau = 0.95;
 means = zeros(numEpisodes,1);
 
 %% addestramento
-
+rng(1234);
 counter = 0;
 
 for e = 1:numEpisodes
@@ -134,7 +134,7 @@ for e = 1:numEpisodes
     %    break;
     %end
 
-    if counter >= 25
+    if counter >= 1000
         break;
     end
 end
