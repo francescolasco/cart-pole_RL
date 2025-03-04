@@ -134,7 +134,7 @@ for e = 1:numEpisodes
     %    break;
     %end
 
-    if counter >= 1000
+    if counter >= 100
         break;
     end
 end

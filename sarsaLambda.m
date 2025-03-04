@@ -145,7 +145,7 @@ for e = 1:numEpisodes
     % if means(e) >= 0.9*maxSteps % metto una tolleranza
     %     break;
     % end
-    if counter >= 1000
+    if counter >= 100
         break;
     end
 end

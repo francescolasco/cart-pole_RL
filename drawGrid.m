@@ -5,11 +5,11 @@ close all;
 x = 0.7;
 y = -2.3;
 
-N = 7; % number of cells
-M = 5; % number of grids
+N = 10; % number of cells
+M = 10; % number of grids
 
-xMax = 7; % assumo che lo spazio sia da -xMax a xMax
-yMax = 5; % assumo che lo spazio sia da -yMax a yMax
+xMax = 2.4; % assumo che lo spazio sia da -xMax a xMax
+yMax = 20; % assumo che lo spazio sia da -yMax a yMax
 
 dx = 2*xMax/N; % larghezza quadratino
 dy = 2*yMax/N; % altezza quadratino
@@ -17,9 +17,13 @@ dy = 2*yMax/N; % altezza quadratino
 displacement = [1 3]; % spiazzamento relativo su asse x e su asse y
 displacement = displacement/max(displacement); % normalizzazione
 
+mx = 2*xMax/N/M*displacement(1);
+my = 2*yMax/N/M*displacement(2);
+
 for k = 0:M
     clr = rand(1, 3);
-    dd = displacement * k;
+    % dd = displacement * k;
+    dd = [mx my]*k;
     % disegna bordo esterno
     plot([-xMax+dd(1) xMax+dd(1)], [-yMax+dd(2) -yMax+dd(2)], "Color", clr); % base inferiore
     hold on
