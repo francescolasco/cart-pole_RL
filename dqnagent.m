@@ -7,10 +7,10 @@ env = rlPredefinedEnv("CartPole-Discrete");
 obsInfo = getObservationInfo(env);
 actInfo = getActionInfo(env);
 
-initOpts = rlAgentInitializationOptions(NumHiddenUnit=20);
+initOpts = rlAgentInitializationOptions(NumHiddenUnit=128);
 
 agentOpts = rlDQNAgentOptions( ...
-    MiniBatchSize            = 256,...
+    MiniBatchSize            =  128,...
     TargetSmoothFactor       = 1, ...
     TargetUpdateFrequency    = 4,...
     UseDoubleDQN             = false);
@@ -21,45 +21,28 @@ agent = rlDQNAgent(obsInfo,actInfo,initOpts,agentOpts);
 
 % training options
 trainOpts = rlTrainingOptions(...
-    MaxEpisodes=100, ...
-    MaxStepsPerEpisode=250, ...
+    MaxEpisodes=1000, ...
+    MaxStepsPerEpisode=500, ...
     Verbose=false, ...
     Plots="training-progress",...
     StopTrainingCriteria="EvaluationStatistic",...
-    StopTrainingValue=250);
+    StopTrainingValue=500);
 
 % agent evaluator
 evl = rlEvaluator(EvaluationFrequency=20, NumEpisodes=5);
 
 %% inizio addestramento
 
-% trainingStats = train(agent,env,trainOpts,Evaluator=evl);
-simOptions = rlSimulationOptions(MaxSteps=1);
-for e = 1:100
-    state = env.reset();
-    
-    isDone = 0;
-    n = 0;
-    while ~isDone || n < 250
-        n = n + 1;
+trainingStats = train(agent,env,trainOpts,Evaluator=evl);
 
-        action = agent.getAction(state);
-    
-        experience = sim(env,agent,simOptions);
-        
-        isDone = experience.IsDone.Data;
-        nextState = experience.Observation.CartPoleStates.Data(:,:,2);
-        
-        learn(agent, experience);
+dqnAgentNet = getModel(getCritic(agent));
 
-        state = nextState;
-    end
-end
+save('trainednet_dqnagent.mat', 'dqnAgentNet');
 
 %% plot
 
 state = env.reset();
-for i=1:1000
+for i=1:500
     
     action = agent.getAction(state);
 

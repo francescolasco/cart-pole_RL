@@ -1,3 +1,6 @@
+% IN QUESTO CODICE ADDESTRO LA RETE COI PESI GIA ADDESTRATI CON L'AGENTE
+% RLDQNAGENT PREDEFINITO DI MATLAB
+
 clear all %#ok<CLALL>
 close all
 clc
@@ -9,7 +12,7 @@ actions = [-10 10];
 % number of episodes
 numEpisodes = 1000;
 % exploration parameter
-epsilon = 1;
+epsilon = 0.01; 
 epsilonDecay = 0.999;
 % foresight parameter
 gamma = 0.999;
@@ -33,13 +36,9 @@ targetUpdate = 4;
 % softUpdate = 0;
 % tau = 0.1;
 
-obsInfo = getObservationInfo(env);
-actInfo = getActionInfo(env);
-initOpts = rlAgentInitializationOptions(NumHiddenUnit=128);
-agent = rlDQNAgent(obsInfo,actInfo,initOpts);
-
-criticNet = getModel(getCritic(agent));
-targetNet = criticNet;
+% carico la rete addestrata con rldqnagent
+load("trainednet_dqnagent.mat");
+targetNet = dqnAgentNet;
 
 % inizializzo le code per mantenere le esperienze
 experienceBufferS = zeros(4,experienceBufferSize);
@@ -64,6 +63,8 @@ means = zeros(numEpisodes,1);
 % Loss
 losses = zeros(numEpisodes,1);
 
+counter = 0;
+
 m = 0; % contatore per riempimento code e step totali dall'inizio
 for e = 1:numEpisodes
     fprintf('Episodio: %d\n', e);
@@ -79,7 +80,7 @@ for e = 1:numEpisodes
         n = n + 1;
 
         % Prende la Q facendo uno step di forward-propagation nella rete
-        Q = forward(criticNet,dlarray(s,'CB'));
+        Q = forward(dqnAgentNet,dlarray(s,'CB'));
 
         % Prendo l'azione secondo il metodo epsilon-greedy
         if rand < epsilon
@@ -129,15 +130,15 @@ for e = 1:numEpisodes
             % Aggiorno la rete
             colIndex = linspace(1,batchSize,batchSize);
             indices = gpuArray(dlarray(A + (colIndex-1)*2,'CB'));
-            [loss,g] = dlfeval(@optimize,criticNet,S,y,indices);
+            [loss,g] = dlfeval(@optimize,dqnAgentNet,S,y,indices);
 
             losses(e) = losses(e) + loss;
             
-            [criticNet,averageGrad,averageSqGrad] = adamupdate(criticNet,g,averageGrad,averageSqGrad,m,lr);
+            [dqnAgentNet,averageGrad,averageSqGrad] = adamupdate(dqnAgentNet,g,averageGrad,averageSqGrad,m,lr);
         end
 
         if mod(m,targetUpdate) == 0
-            targetNet.Learnables.Value = criticNet.Learnables.Value;
+            targetNet.Learnables.Value = dqnAgentNet.Learnables.Value;
         end
 
         s = sp;
@@ -168,18 +169,18 @@ for e = 1:numEpisodes
     end
 end
 
-save('trainednet_dqn.mat', 'criticNet');
+save('retrainednet_dqnagent.mat', 'dqnAgentNet');
 
 %% test
 close all
 
-load("trainednet_dqn.mat");
+load("retrainednet_dqnagent.mat");
 
 rng(1);
 s = env.reset();
 for i=1:maxSteps
     
-    Q = predict(criticNet,s');
+    Q = predict(dqnAgentNet,s');
     [~,a] = max(Q);
     action = actions(a);
 
