@@ -1,4 +1,4 @@
-clear all %#ok<CLALL>
+clear all 
 close all
 clc
     
@@ -10,7 +10,7 @@ actions = [-10 10];
 numEpisodes = 25000;
 % exploration parameter
 epsilon = 1;
-epsilonDecay = 0.9999;
+epsilonDecay = 0.99999;
 % foresight parameter
 gamma = 0.999;
 % update parameter
@@ -56,7 +56,7 @@ lambda = 0.8; % provare altri valori di lambda
 
 %% addestramento
 counter = 0;
-rng(1234);
+rng(4321);
 for e = 1:numEpisodes
     
     % initialize eligibility traces
@@ -147,15 +147,15 @@ for e = 1:numEpisodes
     %     break;
     % end
     
-    if counter >= 100
+    if counter >= 500
         break;
     end
      
 end
 
 hold on
-plot(G);
-plot(means);
+plot(G(1:e));
+plot(means(1:e));
 hold off
 
 save("w_sarsalambda.mat","w");
@@ -165,6 +165,7 @@ save("w_sarsalambda.mat","w");
 close all
 
 load("w_sarsalambda.mat");
+rng(1)
 
 s = env.reset();
 
@@ -191,3 +192,16 @@ for i=1:maxSteps
         break;
     end
 end
+
+
+%%
+[xx, yy] = meshgrid(THETA(1):0.01:THETA(2),OMEGA(1):0.1:OMEGA(2));
+
+zz = zeros(size(xx));
+for i = 1:size(xx,1)
+    for j = 1:size(xx,2)
+        zz(i,j) = max(sum(w(get_features([xx(i,j),yy(i,j),0,0], cellX, cellV, cellTHETA, cellOMEGA, M, N),:)));
+    end
+end
+
+surf(xx,yy,zz)

@@ -64,8 +64,12 @@ means = zeros(numEpisodes,1);
 % Loss
 losses = zeros(numEpisodes,1);
 
+
+
 m = 0; % contatore per riempimento code e step totali dall'inizio
 for e = 1:numEpisodes
+    counter = 0;
+
     fprintf('Episodio: %d\n', e);
 
     % Stato iniziale
@@ -160,16 +164,24 @@ for e = 1:numEpisodes
     fprintf('learning-rate: %f\n', lr);
     fprintf('-----\n\n');
 
-    if G(e) >= maxSteps
+    
+    if G(e) == 500
+        counter = counter + 1;
+    else
+        counter = 0;
+    end
+
+    if counter >= 5
         break;
     end
 end
 
-% save('net.mat', 'net');
+% save('trainednet.mat', 'criticNet');
 
 %% test
 close all
 
+rng(4321);
 load("trainednet.mat");
 
 s = env.reset();

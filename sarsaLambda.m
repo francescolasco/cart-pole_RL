@@ -10,7 +10,7 @@ actions = [-10 10];
 numEpisodes = 1000000;
 % exploration parameter
 epsilon = 1;
-epsilonDecay = 0.9999;
+epsilonDecay = 0.99999;
 % foresight parameter
 gamma = 0.999;
 % update parameter

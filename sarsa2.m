@@ -10,7 +10,7 @@ actions = [-10 10];
 numEpisodes = 1000000;
 % exploration parameter
 epsilon = 1;
-epsilonDecay = 0.9999;
+epsilonDecay = 0.99999;
 % foresight parameter
 gamma = 0.999;
 % update parameter
@@ -52,7 +52,7 @@ tau = 0.95;
 means = zeros(numEpisodes,1);
 
 %% addestramento
-rng(1234);
+rng(4321);
 counter = 0;
 
 for e = 1:numEpisodes
@@ -134,23 +134,25 @@ for e = 1:numEpisodes
     %    break;
     %end
 
-    if counter >= 100
+    if counter >= 500
         break;
     end
 end
 
+close all
 hold on
-plot(G);
-plot(means);
+plot(G(1:e));
+plot(means(1:e));
 hold off
 
 % save("w.mat","w");
 
 %% plot
 
-close all
+rng(1)
 
-%load("w.mat");
+close all
+load("w.mat");
 
 s = env.reset();
 
