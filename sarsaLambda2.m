@@ -200,8 +200,54 @@ end
 zz = zeros(size(xx));
 for i = 1:size(xx,1)
     for j = 1:size(xx,2)
-        zz(i,j) = max(sum(w(get_features([xx(i,j),yy(i,j),0,0], cellX, cellV, cellTHETA, cellOMEGA, M, N),:)));
+        zz(i,j) = max(sum(w(get_features([0,0,xx(i,j),yy(i,j)], cellX, cellV, cellTHETA, cellOMEGA, M, N),:)));
     end
 end
 
 surf(xx,yy,zz)
+
+%%
+thetatheta = THETA(1):0.01:THETA(2);
+
+act = zeros(size(thetatheta));
+for i = 1:length(thetatheta)
+    Fac = get_features([0,0,thetatheta(i),0], cellX, cellV, cellTHETA, cellOMEGA, M, N);
+    Q = sum(w(Fac,:));
+    a = find(Q == max(Q), 1, 'first'); % take greedy action wrt Q
+    act(i) = actions(a);
+end
+
+plot(thetatheta,act,'r')
+title("Azione di Controllo nell'origine")
+ylabel("u")
+xlabel("theta")
+%%
+xx = X(1):0.01:X(2);
+
+act = zeros(size(xx));
+for i = 1:length(xx)
+    Fac = get_features([xx(i),0,0,0], cellX, cellV, cellTHETA, cellOMEGA, M, N);
+    Q = sum(w(Fac,:));
+    a = find(Q == max(Q), 1, 'first'); % take greedy action wrt Q
+    act(i) = actions(a);
+end
+
+plot(xx,act,'r')
+title("Azione di Controllo nell'origine")
+ylabel("u")
+xlabel("x")
+%%
+
+[xx, thetatheta] = meshgrid(X(1):0.01:X(2),THETA(1):0.1:THETA(2));
+
+act = zeros(size(xx));
+for i = 1:size(xx,1)
+    for j = 1:size(xx,2)
+        Fac = get_features([xx(i,j),0,thetatheta(i,j),0], cellX, cellV, cellTHETA, cellOMEGA, M, N);
+        Q = sum(w(Fac,:));
+        a = find(Q == max(Q), 1, 'first'); % take greedy action wrt Q
+        act(i,j) = actions(a);
+    end
+end
+
+surf(xx,thetatheta,act)
